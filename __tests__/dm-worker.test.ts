@@ -1593,6 +1593,65 @@ describe("DM Worker — follow-gate re-check", () => {
   });
 });
 
+describe("DM Worker — follow gate retry message", () => {
+  const gated = {
+    ...mockAutomation,
+    requireFollow: true,
+    followPromptMessage: "Follow me first, then tap the button",
+    trackedLinks: [],
+  };
+
+  beforeEach(() => {
+    process.env.FOLLOW_GATE_RETRY_MESSAGE = "I don't see your follow yet, try again";
+    mockPrisma.automation.findFirst.mockResolvedValue(gated);
+    mockGetUserFollowStatus.mockResolvedValue(false);
+  });
+
+  afterEach(() => {
+    delete process.env.FOLLOW_GATE_RETRY_MESSAGE;
+  });
+
+  it("tells a rejected tap it was not seen following, with the button again", async () => {
+    await getProcessor()(
+      createMockPostbackJob({
+        instagramAccountId: "ig_456",
+        userId: "commenter_999",
+        payload: "followcheck:auto_789",
+        followRecheck: true,
+        followRecheckAttempt: 2,
+      })
+    );
+
+    expect(mockSendDirectMessageWithButton).toHaveBeenCalledWith(
+      "decrypted_token",
+      "ig_456",
+      "commenter_999",
+      "I don't see your follow yet, try again",
+      expect.any(String),
+      "followcheck:auto_789"
+    );
+  });
+
+  it("keeps the regular prompt for an opening-DM tap", async () => {
+    await getProcessor()(
+      createMockPostbackJob({
+        instagramAccountId: "ig_456",
+        userId: "commenter_999",
+        payload: "followcheck:auto_789:open",
+      })
+    );
+
+    expect(mockSendDirectMessageWithButton).toHaveBeenCalledWith(
+      "decrypted_token",
+      "ig_456",
+      "commenter_999",
+      "Follow me first, then tap the button",
+      expect.any(String),
+      "followcheck:auto_789"
+    );
+  });
+});
+
 describe("DM Worker — follow re-check acknowledgement", () => {
   const gated = { ...mockAutomation, requireFollow: true, trackedLinks: [] };
   const tap = {

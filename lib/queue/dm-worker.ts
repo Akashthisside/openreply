@@ -1051,8 +1051,16 @@ async function processPostback(job: Job<ProcessPostbackJob>): Promise<void> {
           .catch(() => {});
       }
 
+      // After the re-checks, the prompt goes out again with its button. A
+      // rejected tap can say so (FOLLOW_GATE_RETRY_MESSAGE) instead of
+      // repeating the first prompt word for word; an opening-DM tap was never
+      // a claim to follow, so it always gets the regular prompt.
+      const retryMessage = !fromOpeningDm
+        ? process.env.FOLLOW_GATE_RETRY_MESSAGE?.trim()
+        : undefined;
       const promptText = renderMessageWithoutLink({
         message:
+          retryMessage ||
           automation.followPromptMessage ||
           "quick favor before i send your link. i don't make any money from this, it's free. if you want to support me, just don't unfollow after, and star the repo on github if it helps you. tap the button once you're following and i'll send it over",
         commenterName,
